@@ -535,6 +535,21 @@ ipcMain.handle("pet:quit", async () => {
   isQuitting = true;
   app.quit();
 });
+ipcMain.on("pet:move-window", (_event, delta) => {
+  if (!mainWindow || mainWindow.isDestroyed()) {
+    return;
+  }
+
+  const dx = Number(delta?.dx || 0);
+  const dy = Number(delta?.dy || 0);
+  if (!Number.isFinite(dx) || !Number.isFinite(dy)) {
+    return;
+  }
+
+  const [x, y] = mainWindow.getPosition();
+  // 自定义拖动只移动窗口坐标，不触碰窗口尺寸，避免和大小调节互相污染。
+  mainWindow.setPosition(Math.round(x + dx), Math.round(y + dy), false);
+});
 ipcMain.on("pet:renderer-ready", () => {
   broadcastConfig();
   if (statusBridge?.currentState) {
