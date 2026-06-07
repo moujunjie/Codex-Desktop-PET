@@ -1,0 +1,46 @@
+{
+  "name": "codex-pixel-pet",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Codex 工作状态桌面悬浮宠物",
+  "main": "electron/main.js",
+  "scripts": {
+    "build": "electron-builder --win nsis",
+    "build:portable": "electron-builder --win portable",
+    "dist": "electron-builder --win nsis",
+    "dev": "electron .",
+    "start": "electron ."
+  },
+  "build": {
+    "appId": "local.codex.pixelpet",
+    "productName": "Codex Pixel Pet",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "electron/**/*",
+      "src/**/*",
+      "assets/**/*",
+      "runtime/**/*",
+      "pet.config.json",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "assets",
+        "to": "assets"
+      }
+    ],
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Codex Pixel Pet"
+    }
+  },
+  "devDependencies": {
+    "electron": "^35.0.0",
+    "electron-builder": "^26.0.12"
+  }
+}

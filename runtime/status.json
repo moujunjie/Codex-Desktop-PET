@@ -1,0 +1,7 @@
+{
+  "status": "idle",
+  "title": "待命中",
+  "detail": "这是 JSON 文件模式的初始状态，你可以让别的程序改写它。",
+  "badge": "FILE",
+  "turnStartedAt": null
+}

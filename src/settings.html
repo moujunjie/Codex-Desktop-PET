@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Codex Pixel Pet 设置</title>
+    <link rel="stylesheet" href="./settings.css" />
+  </head>
+  <body>
+    <main class="shell">
+      <header class="hero">
+        <span class="hero__badge">PIXEL STATUS</span>
+        <h1>Codex 桌面宠物</h1>
+        <p>桌面上只保留透明状态牌；设置入口常驻右下角系统托盘，右键托盘图标即可打开。</p>
+      </header>
+
+      <section class="panel status-panel" aria-label="当前状态">
+        <div>
+          <span id="statusBadge" class="status-badge">IDLE</span>
+          <h2 id="statusTitle">待命中</h2>
+          <p id="statusDetail">正在等待状态源。</p>
+        </div>
+        <div class="status-dot" id="statusDot"></div>
+      </section>
+
+      <section class="panel">
+        <h2>显示形式</h2>
+        <label class="option">
+          <input type="radio" name="displayMode" value="desktop" />
+          <span>
+            <strong>电脑桌面显示</strong>
+            <small>只显示透明悬浮状态牌，双击或右键打开设置。</small>
+          </span>
+        </label>
+        <label class="option">
+          <input type="radio" name="displayMode" value="device" />
+          <span>
+            <strong>摆件屏幕同步</strong>
+            <small>继续保留桌面入口，同时把状态推送给无线屏幕。</small>
+          </span>
+        </label>
+        <label class="range-field">
+          <span>
+            <strong>桌面图标大小</strong>
+            <small id="iconScaleValue">100%</small>
+          </span>
+          <input id="iconScale" type="range" min="0.25" max="2.5" step="0.05" value="1" />
+        </label>
+      </section>
+
+      <section class="panel">
+        <h2>图标风格</h2>
+        <label class="option">
+          <input type="radio" name="appearanceMode" value="card" />
+          <span>
+            <strong>文字状态牌</strong>
+            <small>保留文字、动作和小道具，适合当前桌面宠物。</small>
+          </span>
+        </label>
+        <label class="option">
+          <input type="radio" name="appearanceMode" value="character" />
+          <span>
+            <strong>纯人物图标</strong>
+            <small>更小巧，适合以后做极简模式。</small>
+          </span>
+        </label>
+      </section>
+
+      <section class="panel">
+        <h2>状态来源</h2>
+        <label class="option">
+          <input type="radio" name="sourceMode" value="json-file" />
+          <span>
+            <strong>JSON 文件桥接</strong>
+            <small>外部脚本写入 runtime/status.json，最轻量稳定。</small>
+          </span>
+        </label>
+        <label class="option">
+          <input type="radio" name="sourceMode" value="codex-exec" />
+          <span>
+            <strong>codex exec 状态流</strong>
+            <small>默认接入方式，去掉演示循环，避免一启动就误判 THINKING。</small>
+          </span>
+        </label>
+      </section>
+
+      <section class="panel">
+        <h2>摆件屏幕</h2>
+        <label class="field">
+          <span>HTTP 接口地址</span>
+          <input id="deviceEndpoint" type="url" spellcheck="false" placeholder="http://192.168.4.1/status" />
+        </label>
+        <button id="saveDevice" class="button button-primary" type="button">保存屏幕地址</button>
+        <p id="deviceState" class="hint">摆件屏幕尚未同步。</p>
+      </section>
+
+      <section class="panel">
+        <h2>系统</h2>
+        <label class="switch-row">
+          <span>
+            <strong>开机自启动</strong>
+            <small>下次登录 Windows 时自动启动桌面宠物。</small>
+          </span>
+          <input id="startupToggle" type="checkbox" />
+        </label>
+        <div class="actions">
+          <button id="minimizeApp" class="button" type="button">最小化</button>
+          <button id="quitApp" class="button button-danger" type="button">退出软件</button>
+        </div>
+      </section>
+    </main>
+
+    <script src="./settings.js"></script>
+  </body>
+</html>

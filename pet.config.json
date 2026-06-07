@@ -1,0 +1,58 @@
+{
+  "photoPath": "E:/xwechat_files/wxid_d13r361pn3nb22_39bd/temp/RWTemp/2026-06/667fac53b07d021f348a13ea174aacd3.jpg",
+  "spriteSheetPath": "C:/Users/junjiemou/.codex/generated_images/019ea1d9-83e5-7202-9974-5813318ba145/ig_0757e341b2ac3e0e016a25782b93a4819681a6378cddac779a.png",
+  "appearance": {
+    "mode": "card"
+  },
+  "animation": {
+    "fps": 12
+  },
+  "window": {
+    "characterWidth": 170,
+    "characterHeight": 178,
+    "cardWidth": 248,
+    "cardHeight": 202,
+    "sizeScale": 1,
+    "alwaysOnTop": true
+  },
+  "display": {
+    "mode": "desktop"
+  },
+  "startup": {
+    "openAtLogin": false
+  },
+  "device": {
+    "endpoint": "http://192.168.4.1/status",
+    "pushIntervalMs": 2500,
+    "requestTimeoutMs": 900
+  },
+  "pixelation": {
+    "crop": {
+      "x": 0.08,
+      "y": 0.03,
+      "w": 0.84,
+      "h": 0.84
+    },
+    "smallWidth": 60,
+    "scale": 3,
+    "backgroundThreshold": 245,
+    "outlineColor": "#2b1b18"
+  },
+  "source": {
+    "mode": "codex-exec",
+    "mockCycleSeconds": 6,
+    "codexExec": {
+      "autoStart": false,
+      "command": "codex",
+      "args": [
+        "exec",
+        "--json",
+        "请简短说明当前任务的进展，并在完成后结束。"
+      ],
+      "cwd": "E:/codex_project/AI红绿灯"
+    },
+    "file": {
+      "path": "./runtime/status.json"
+    }
+  }
+}

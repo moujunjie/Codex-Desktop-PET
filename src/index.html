@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Codex Pixel Pet</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="pet-shell" id="petShell">
+      <section class="pet-card status-idle" id="petCard">
+        <div class="drag-layer" aria-hidden="true"></div>
+
+        <div class="window-actions">
+          <button class="icon-button" id="minimizeButton" title="最小化" type="button">−</button>
+          <button class="icon-button" id="quitButton" title="退出" type="button">×</button>
+        </div>
+
+        <div class="status-bubble" id="statusBubble">
+          <span class="status-bubble__icon" id="bubbleIcon">Zz</span>
+          <span class="status-bubble__text" id="bubbleText">待命中</span>
+        </div>
+
+        <div class="avatar-stage">
+          <div class="accent-ring"></div>
+          <div class="ground-shadow"></div>
+          <canvas id="avatarCanvas" width="220" height="260" aria-label="像素桌宠"></canvas>
+
+          <div class="fx fx-dots" id="fxDots" aria-hidden="true">
+            <span></span>
+            <span></span>
+            <span></span>
+          </div>
+
+          <div class="fx fx-chip" id="fxChip" aria-hidden="true">⌘</div>
+          <div class="fx fx-symbol" id="fxSymbol" aria-hidden="true">✓</div>
+          <div class="status-badge" id="statusBadge">IDLE</div>
+        </div>
+
+        <div class="info-panel">
+          <div class="meta-row">
+            <span class="state-pill" id="statePill">待命</span>
+            <span class="elapsed-text" id="elapsedText">00:00</span>
+          </div>
+
+          <p class="detail-text" id="detailText">等待状态源连接。</p>
+          <p class="source-text" id="sourceText">Mock 演示</p>
+          <p class="device-text" id="deviceText">摆件屏幕未连接</p>
+
+          <div class="control-row">
+            <button class="mode-button is-active" data-mode="mock" type="button">演示</button>
+            <button class="mode-button" data-mode="codex-exec" type="button">Codex</button>
+            <button class="mode-button" data-mode="json-file" type="button">文件</button>
+          </div>
+
+          <div class="control-row display-row">
+            <button class="display-button is-active" data-display-mode="desktop" type="button">桌面</button>
+            <button class="display-button" data-display-mode="device" type="button">摆件屏幕</button>
+          </div>
+
+          <label class="endpoint-row">
+            <span>屏幕地址</span>
+            <input id="deviceEndpointInput" spellcheck="false" />
+          </label>
+
+          <label class="toggle-row">
+            <span>开机自启动</span>
+            <input id="startupToggle" type="checkbox" />
+          </label>
+        </div>
+      </section>
+    </main>
+
+    <script src="./renderer.js"></script>
+  </body>
+</html>
