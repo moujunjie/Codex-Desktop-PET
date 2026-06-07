@@ -10,8 +10,8 @@ const rootDir = path.resolve(__dirname, "..");
 const configPath = path.join(rootDir, "pet.config.json");
 
 const defaultConfig = loadDefaultConfig();
-const ICON_SCALE_MIN = 0.25;
-const ICON_SCALE_MAX = 2.5;
+const ICON_SCALE_MIN = 0.15;
+const ICON_SCALE_MAX = 3;
 let userSettings = {};
 let config = defaultConfig;
 let mainWindow = null;
@@ -52,6 +52,18 @@ function migrateSettings(settings) {
       mode: "codex-exec"
     };
     changed = true;
+  }
+
+  const currentScale = Number(migrated.window?.sizeScale);
+  if (Number.isFinite(currentScale)) {
+    const safeScale = clamp(currentScale, ICON_SCALE_MIN, ICON_SCALE_MAX);
+    if (safeScale !== currentScale) {
+      migrated.window = {
+        ...(migrated.window || {}),
+        sizeScale: safeScale
+      };
+      changed = true;
+    }
   }
 
   return {
@@ -279,7 +291,17 @@ function applyMainWindowSize(scaleOverride) {
   }
 
   const size = getMainWindowSize(scaleOverride);
-  mainWindow.setSize(size.width, size.height, true);
+  const [x, y] = mainWindow.getPosition();
+  // 禁用系统尺寸动画，避免快速拖动滑杆时旧动画把窗口又放大。
+  mainWindow.setBounds(
+    {
+      x,
+      y,
+      width: size.width,
+      height: size.height
+    },
+    false
+  );
 }
 
 function getMainWindowSize(scaleOverride) {
@@ -461,7 +483,7 @@ ipcMain.handle("pet:set-icon-scale", async (_event, scale) => {
   applyDisplayModeToWindow();
   return config.window.sizeScale;
 });
-ipcMain.handle("pet:preview-icon-scale", async (_event, payload) => {
+ipcMain.on("pet:preview-icon-scale", (_event, payload) => {
   const sessionId = String(payload?.sessionId || "default");
   const sequence = Number(payload?.sequence || 0);
   if (sessionId !== activeScalePreviewSession) {
@@ -477,7 +499,6 @@ ipcMain.handle("pet:preview-icon-scale", async (_event, payload) => {
   const nextScale = clamp(Number(payload?.scale), ICON_SCALE_MIN, ICON_SCALE_MAX);
   // 预览缩放只改窗口尺寸，不写入配置、不广播配置，避免拖动时旧请求覆盖新请求。
   applyMainWindowSize(nextScale);
-  return nextScale;
 });
 ipcMain.handle("pet:set-display-mode", async (_event, mode) => {
   updateConfig({
@@ -514,21 +535,6 @@ ipcMain.handle("pet:quit", async () => {
   isQuitting = true;
   app.quit();
 });
-ipcMain.on("pet:move-window", (_event, delta) => {
-  if (!mainWindow || mainWindow.isDestroyed()) {
-    return;
-  }
-
-  const dx = Number(delta?.dx || 0);
-  const dy = Number(delta?.dy || 0);
-  if (!Number.isFinite(dx) || !Number.isFinite(dy)) {
-    return;
-  }
-
-  const [x, y] = mainWindow.getPosition();
-  mainWindow.setPosition(Math.round(x + dx), Math.round(y + dy), false);
-});
-
 ipcMain.on("pet:renderer-ready", () => {
   broadcastConfig();
   if (statusBridge?.currentState) {

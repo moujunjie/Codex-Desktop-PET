@@ -26,62 +26,6 @@ async function initDesktopPet() {
 }
 
 function bindDesktopGestures() {
-  let dragging = false;
-  let previousPoint = null;
-  let pendingDelta = { dx: 0, dy: 0 };
-  let frameRequested = false;
-
-  const flushMove = () => {
-    frameRequested = false;
-    const delta = pendingDelta;
-    pendingDelta = { dx: 0, dy: 0 };
-    if (delta.dx || delta.dy) {
-      window.petAPI.moveWindow(delta);
-    }
-  };
-
-  document.addEventListener("pointerdown", (event) => {
-    if (event.button !== 0) {
-      return;
-    }
-
-    dragging = true;
-    previousPoint = {
-      x: event.screenX,
-      y: event.screenY
-    };
-    pet.classList.add("is-dragging");
-    document.body.setPointerCapture?.(event.pointerId);
-  });
-
-  document.addEventListener("pointermove", (event) => {
-    if (!dragging || !previousPoint) {
-      return;
-    }
-
-    pendingDelta.dx += event.screenX - previousPoint.x;
-    pendingDelta.dy += event.screenY - previousPoint.y;
-    previousPoint = {
-      x: event.screenX,
-      y: event.screenY
-    };
-
-    if (!frameRequested) {
-      frameRequested = true;
-      requestAnimationFrame(flushMove);
-    }
-  });
-
-  const stopDragging = (event) => {
-    dragging = false;
-    previousPoint = null;
-    pet.classList.remove("is-dragging");
-    document.body.releasePointerCapture?.(event.pointerId);
-  };
-
-  document.addEventListener("pointerup", stopDragging);
-  document.addEventListener("pointercancel", stopDragging);
-
   document.addEventListener("dblclick", () => {
     window.petAPI.openSettings();
   });

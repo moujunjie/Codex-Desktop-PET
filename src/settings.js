@@ -9,9 +9,10 @@ const STATUS_META = {
   offline: { color: "#77736c", badge: "OFF" }
 };
 
-const ICON_SCALE_MIN = 0.25;
-const ICON_SCALE_MAX = 2.5;
+const ICON_SCALE_MIN = 0.15;
+const ICON_SCALE_MAX = 3;
 const iconScalePreviewSession = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+let lastCommittedIconScale = null;
 
 const elements = {
   statusBadge: document.getElementById("statusBadge"),
@@ -69,8 +70,11 @@ function bindForm() {
   });
 
   elements.iconScale.addEventListener("change", async () => {
-    const scale = await window.petAPI.setIconScale(Number(elements.iconScale.value));
-    renderIconScale(scale);
+    await commitIconScale();
+  });
+
+  elements.iconScale.addEventListener("pointerup", async () => {
+    await commitIconScale();
   });
 
   elements.startupToggle.addEventListener("change", async () => {
@@ -102,7 +106,9 @@ function renderConfig(config) {
   setRadioValue("appearanceMode", config?.appearance?.mode || "card");
   setRadioValue("sourceMode", config?.source?.mode || "codex-exec");
   elements.deviceEndpoint.value = config?.device?.endpoint || "";
-  renderIconScale(config?.window?.sizeScale || 1);
+  const iconScale = config?.window?.sizeScale || 1;
+  renderIconScale(iconScale);
+  lastCommittedIconScale = clamp(Number(iconScale), ICON_SCALE_MIN, ICON_SCALE_MAX);
 }
 
 function renderStartup(enabled) {
@@ -156,9 +162,9 @@ function previewIconScale(scale) {
   previewIconScale.pendingScale = scale;
   previewIconScale.pendingSequence = previewIconScale.sequence;
   previewIconScale.frameRequested = true;
-  requestAnimationFrame(async () => {
+  requestAnimationFrame(() => {
     previewIconScale.frameRequested = false;
-    await window.petAPI.previewIconScale({
+    window.petAPI.previewIconScale({
       scale: previewIconScale.pendingScale,
       sequence: previewIconScale.pendingSequence,
       sessionId: iconScalePreviewSession
@@ -170,6 +176,17 @@ previewIconScale.frameRequested = false;
 previewIconScale.pendingScale = 1;
 previewIconScale.pendingSequence = 0;
 previewIconScale.sequence = 0;
+
+async function commitIconScale() {
+  const targetScale = clamp(Number(elements.iconScale.value), ICON_SCALE_MIN, ICON_SCALE_MAX);
+  if (targetScale === lastCommittedIconScale) {
+    return;
+  }
+
+  lastCommittedIconScale = targetScale;
+  const scale = await window.petAPI.setIconScale(targetScale);
+  renderIconScale(scale);
+}
 
 function clamp(value, min, max) {
   if (Number.isNaN(value)) {

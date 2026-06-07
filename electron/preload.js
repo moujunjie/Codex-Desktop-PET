@@ -11,13 +11,12 @@ contextBridge.exposeInMainWorld("petAPI", {
   setMode: (mode) => ipcRenderer.invoke("pet:set-mode", mode),
   setAppearanceMode: (mode) => ipcRenderer.invoke("pet:set-appearance-mode", mode),
   setIconScale: (scale) => ipcRenderer.invoke("pet:set-icon-scale", scale),
-  previewIconScale: (payload) => ipcRenderer.invoke("pet:preview-icon-scale", payload),
   setDisplayMode: (mode) => ipcRenderer.invoke("pet:set-display-mode", mode),
   setDeviceEndpoint: (endpoint) => ipcRenderer.invoke("pet:set-device-endpoint", endpoint),
   setStartup: (enabled) => ipcRenderer.invoke("pet:set-startup", enabled),
   minimize: () => ipcRenderer.invoke("pet:minimize"),
   quit: () => ipcRenderer.invoke("pet:quit"),
-  moveWindow: (delta) => ipcRenderer.send("pet:move-window", delta),
+  previewIconScale: (payload) => ipcRenderer.send("pet:preview-icon-scale", payload),
   ready: () => ipcRenderer.send("pet:renderer-ready"),
   onStatus: (callback) => {
     const handler = (_event, payload) => callback(payload);
