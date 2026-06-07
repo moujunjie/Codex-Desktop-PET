@@ -37,7 +37,6 @@ body {
   object-fit: contain;
   image-rendering: pixelated;
   pointer-events: auto;
-  filter: drop-shadow(0 10px 12px rgba(28, 18, 13, 0.18));
   transform-origin: 50% 82%;
 }
 
@@ -61,9 +60,6 @@ body {
   animation:
     approvalAlert 0.82s ease-in-out infinite,
     approvalFlash 0.82s steps(2, end) infinite;
-  filter:
-    drop-shadow(0 0 8px rgba(232, 70, 56, 0.75))
-    drop-shadow(0 12px 14px rgba(28, 18, 13, 0.22));
 }
 
 .state-done .pet__image {
@@ -102,10 +98,10 @@ body {
 @keyframes actingBounce {
   0%,
   100% {
-    transform: translateY(0) scale(1);
+    transform: translateY(0);
   }
   50% {
-    transform: translateY(-6px) scale(1.015);
+    transform: translateY(-6px);
   }
 }
 
@@ -122,26 +118,26 @@ body {
 @keyframes donePop {
   0%,
   100% {
-    transform: translateY(0) scale(1);
+    transform: translateY(0);
   }
   22% {
-    transform: translateY(-8px) scale(1.05);
+    transform: translateY(-8px);
   }
   42% {
-    transform: translateY(1px) scale(0.99);
+    transform: translateY(1px);
   }
 }
 
 @keyframes approvalAlert {
   0%,
   100% {
-    transform: translateY(0) scale(1) rotate(0deg);
+    transform: translateY(0) rotate(0deg);
   }
   35% {
-    transform: translateY(-8px) scale(1.045) rotate(-1.2deg);
+    transform: translateY(-8px) rotate(-1.2deg);
   }
   65% {
-    transform: translateY(-2px) scale(1.02) rotate(1.2deg);
+    transform: translateY(-2px) rotate(1.2deg);
   }
 }
 
@@ -149,17 +145,9 @@ body {
   0%,
   100% {
     opacity: 1;
-    filter:
-      drop-shadow(0 0 5px rgba(255, 214, 82, 0.75))
-      drop-shadow(0 0 14px rgba(232, 70, 56, 0.85))
-      drop-shadow(0 12px 14px rgba(28, 18, 13, 0.22));
   }
   50% {
     opacity: 0.78;
-    filter:
-      drop-shadow(0 0 2px rgba(255, 214, 82, 0.32))
-      drop-shadow(0 0 5px rgba(232, 70, 56, 0.48))
-      drop-shadow(0 9px 10px rgba(28, 18, 13, 0.18));
   }
 }
 

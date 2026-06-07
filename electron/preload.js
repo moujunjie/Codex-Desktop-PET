@@ -17,7 +17,8 @@ contextBridge.exposeInMainWorld("petAPI", {
   minimize: () => ipcRenderer.invoke("pet:minimize"),
   quit: () => ipcRenderer.invoke("pet:quit"),
   previewIconScale: (payload) => ipcRenderer.send("pet:preview-icon-scale", payload),
-  moveWindow: (delta) => ipcRenderer.send("pet:move-window", delta),
+  startDragWindow: () => ipcRenderer.send("pet:start-drag-window"),
+  stopDragWindow: () => ipcRenderer.send("pet:stop-drag-window"),
   ready: () => ipcRenderer.send("pet:renderer-ready"),
   onStatus: (callback) => {
     const handler = (_event, payload) => callback(payload);

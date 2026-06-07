@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, Menu, Notification, Tray, nativeImage } = require("electron");
+const { app, BrowserWindow, ipcMain, Menu, Notification, Tray, nativeImage, screen } = require("electron");
 const fs = require("node:fs");
 const path = require("node:path");
 
@@ -25,6 +25,7 @@ let tray = null;
 let isQuitting = false;
 let latestScalePreviewSequence = 0;
 let activeScalePreviewSession = null;
+let dragSession = null;
 
 function loadDefaultConfig() {
   const raw = fs.readFileSync(configPath, "utf8");
@@ -153,6 +154,7 @@ function createWindow() {
   });
 
   mainWindow.setAlwaysOnTop(true, "screen-saver");
+  mainWindow.setResizable(false);
   mainWindow.setTitle("");
   mainWindow.setBackgroundColor("#00000000");
 
@@ -292,6 +294,7 @@ function applyMainWindowSize(scaleOverride) {
 
   const size = getMainWindowSize(scaleOverride);
   const [x, y] = mainWindow.getPosition();
+  unlockMainWindowSize();
   // 禁用系统尺寸动画，避免快速拖动滑杆时旧动画把窗口又放大。
   mainWindow.setBounds(
     {
@@ -302,6 +305,26 @@ function applyMainWindowSize(scaleOverride) {
     },
     false
   );
+  lockMainWindowSize(size);
+}
+
+function lockMainWindowSize(size) {
+  if (!mainWindow || mainWindow.isDestroyed()) {
+    return;
+  }
+
+  mainWindow.setResizable(false);
+  mainWindow.setMinimumSize(size.width, size.height);
+  mainWindow.setMaximumSize(size.width, size.height);
+}
+
+function unlockMainWindowSize() {
+  if (!mainWindow || mainWindow.isDestroyed()) {
+    return;
+  }
+
+  mainWindow.setMinimumSize(1, 1);
+  mainWindow.setMaximumSize(10000, 10000);
 }
 
 function getMainWindowSize(scaleOverride) {
@@ -535,21 +558,52 @@ ipcMain.handle("pet:quit", async () => {
   isQuitting = true;
   app.quit();
 });
-ipcMain.on("pet:move-window", (_event, delta) => {
+ipcMain.on("pet:start-drag-window", () => {
   if (!mainWindow || mainWindow.isDestroyed()) {
     return;
   }
 
-  const dx = Number(delta?.dx || 0);
-  const dy = Number(delta?.dy || 0);
-  if (!Number.isFinite(dx) || !Number.isFinite(dy)) {
-    return;
+  stopMainWindowDrag();
+  const cursor = screen.getCursorScreenPoint();
+  const [windowX, windowY] = mainWindow.getPosition();
+  const lockedSize = getMainWindowSize();
+  lockMainWindowSize(lockedSize);
+
+  dragSession = {
+    cursor,
+    windowX,
+    windowY,
+    lockedSize,
+    timer: setInterval(() => {
+      if (!mainWindow || mainWindow.isDestroyed() || !dragSession) {
+        stopMainWindowDrag();
+        return;
+      }
+
+      const currentCursor = screen.getCursorScreenPoint();
+      mainWindow.setBounds(
+        {
+          x: Math.round(dragSession.windowX + currentCursor.x - dragSession.cursor.x),
+          y: Math.round(dragSession.windowY + currentCursor.y - dragSession.cursor.y),
+          width: dragSession.lockedSize.width,
+          height: dragSession.lockedSize.height
+        },
+        false
+      );
+    }, 16)
+  };
+});
+ipcMain.on("pet:stop-drag-window", () => {
+  stopMainWindowDrag();
+});
+
+function stopMainWindowDrag() {
+  if (dragSession?.timer) {
+    clearInterval(dragSession.timer);
   }
 
-  const [x, y] = mainWindow.getPosition();
-  // 自定义拖动只移动窗口坐标，不触碰窗口尺寸，避免和大小调节互相污染。
-  mainWindow.setPosition(Math.round(x + dx), Math.round(y + dy), false);
-});
+  dragSession = null;
+}
 ipcMain.on("pet:renderer-ready", () => {
   broadcastConfig();
   if (statusBridge?.currentState) {
