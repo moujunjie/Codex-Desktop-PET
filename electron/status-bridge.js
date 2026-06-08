@@ -415,7 +415,7 @@ function mapCodexEventToState(event, previousState) {
     return null;
   }
 
-  if (/approval|authorize|permission/i.test(JSON.stringify(event))) {
+  if (isApprovalRequestEvent(event)) {
     return {
       status: "approval",
       title: "等待权限审批",
@@ -500,7 +500,7 @@ function mapCodexLogRecordToState(record, previousState) {
   const payloadType = payload?.type;
   const recordText = JSON.stringify(record || {});
 
-  if (/sandbox_permissions\\"?:\\"require_escalated|approval|authorize|permission/i.test(recordText)) {
+  if (isApprovalRequestRecord(record)) {
     return {
       status: "approval",
       title: "等待权限审批",
@@ -640,9 +640,8 @@ function findLatestCodexSessionLog() {
 
 function mapItemState(item, previousState) {
   const itemType = item?.type || item?.item_type || "unknown";
-  const combinedText = JSON.stringify(item || {});
 
-  if (/approval|authorize|confirm|permission|allow/i.test(combinedText)) {
+  if (isApprovalRequestItem(item)) {
     return {
       status: "approval",
       title: "等待权限审批",
@@ -746,6 +745,102 @@ function shorten(text) {
   }
 
   return String(text).replace(/\s+/g, " ").slice(0, 100);
+}
+
+function isApprovalRequestEvent(event) {
+  const eventType = String(event?.type || "").toLowerCase();
+  if (matchesApprovalRequestName(eventType)) {
+    return true;
+  }
+
+  return isApprovalRequestItem(event?.item || event?.payload);
+}
+
+function isApprovalRequestRecord(record) {
+  const payload = record?.payload || {};
+  const payloadType = payload?.type;
+
+  if (record?.type !== "response_item") {
+    return false;
+  }
+
+  if (payloadType === "function_call") {
+    return isApprovalRequestItem(payload);
+  }
+
+  const payloadName = String(payload?.name || payload?.tool_name || "").toLowerCase();
+  return matchesApprovalRequestName(payloadName);
+}
+
+function isApprovalRequestItem(item) {
+  if (!item) {
+    return false;
+  }
+
+  const itemType = String(item.type || item.item_type || "").toLowerCase();
+  const itemName = String(item.name || item.tool_name || item.action || "").toLowerCase();
+
+  if (matchesApprovalRequestName(itemType)) {
+    return true;
+  }
+
+  if (matchesApprovalRequestName(itemName)) {
+    return true;
+  }
+
+  return hasRequireEscalatedPermission(item) || hasRequireEscalatedPermission(item.arguments);
+}
+
+function matchesApprovalRequestName(text) {
+  const value = String(text || "");
+  const approvalWords = "(approval|permission|authorization|confirm)";
+  const requestWords = "(request|required|needed|pending)";
+  return new RegExp(`${approvalWords}.*${requestWords}|${requestWords}.*${approvalWords}`, "i").test(value);
+}
+
+function hasRequireEscalatedPermission(value) {
+  if (!value) {
+    return false;
+  }
+
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    if (/["']sandbox_permissions["']\s*:\s*["']require_escalated["']/i.test(trimmed)) {
+      return true;
+    }
+
+    try {
+      return hasRequireEscalatedPermission(JSON.parse(trimmed));
+    } catch (_error) {
+      return false;
+    }
+  }
+
+  if (Array.isArray(value)) {
+    return value.some((item) => hasRequireEscalatedPermission(item));
+  }
+
+  if (typeof value !== "object") {
+    return false;
+  }
+
+  for (const [key, entryValue] of Object.entries(value)) {
+    const normalizedKey = key.toLowerCase();
+    if (normalizedKey === "sandbox_permissions" && String(entryValue).toLowerCase() === "require_escalated") {
+      return true;
+    }
+
+    if ((normalizedKey === "requires_approval" || normalizedKey === "approval_required" || normalizedKey === "needs_approval") && entryValue === true) {
+      return true;
+    }
+
+    // 只递归检查结构化参数，避免普通聊天文本里出现 approval/permission 造成误报。
+    if (entryValue && typeof entryValue === "object" && hasRequireEscalatedPermission(entryValue)) {
+      return true;
+    }
+  }
+
+  return false;
 }
 
 function normalizeStatusName(status) {
