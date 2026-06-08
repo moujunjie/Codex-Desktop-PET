@@ -24,6 +24,7 @@ const elements = {
   deviceState: document.getElementById("deviceState"),
   iconScale: document.getElementById("iconScale"),
   iconScaleValue: document.getElementById("iconScaleValue"),
+  autoHideFullscreenToggle: document.getElementById("autoHideFullscreenToggle"),
   startupToggle: document.getElementById("startupToggle"),
   minimizeApp: document.getElementById("minimizeApp"),
   quitApp: document.getElementById("quitApp")
@@ -77,6 +78,11 @@ function bindForm() {
     await commitIconScale();
   });
 
+  elements.autoHideFullscreenToggle.addEventListener("change", async () => {
+    const enabled = await window.petAPI.setAutoHideFullscreen(elements.autoHideFullscreenToggle.checked);
+    elements.autoHideFullscreenToggle.checked = Boolean(enabled);
+  });
+
   elements.startupToggle.addEventListener("change", async () => {
     const enabled = await window.petAPI.setStartup(elements.startupToggle.checked);
     renderStartup(enabled);
@@ -106,6 +112,7 @@ function renderConfig(config) {
   setRadioValue("appearanceMode", config?.appearance?.mode || "card");
   setRadioValue("sourceMode", config?.source?.mode || "codex-exec");
   elements.deviceEndpoint.value = config?.device?.endpoint || "";
+  elements.autoHideFullscreenToggle.checked = config?.display?.autoHideOnFullscreen !== false;
   const iconScale = config?.window?.sizeScale || 1;
   renderIconScale(iconScale);
   lastCommittedIconScale = clamp(Number(iconScale), ICON_SCALE_MIN, ICON_SCALE_MAX);

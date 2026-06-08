@@ -1,7 +1,7 @@
 # Codex Pixel Pet 最新版说明
 
 > 更新时间：2026-06-08  
-> 当前可下载安装包：[release/electron-installer-v16/Codex Pixel Pet Setup 0.1.0.exe](release/electron-installer-v16/Codex%20Pixel%20Pet%20Setup%200.1.0.exe)
+> 当前可下载安装包：[release/electron-installer-v21/Codex Pixel Pet Setup 0.1.1.exe](release/electron-installer-v21/Codex%20Pixel%20Pet%20Setup%200.1.1.exe)
 
 这是一个轻量化的 Codex 工作状态桌面宠物。最新版已经改成“右下角系统托盘常驻 + 透明桌面状态牌 + 可选摆件屏幕同步”的形态，桌面上只显示像素风状态图标，不再显示额外窗口标题或控制按钮。
 
@@ -11,6 +11,7 @@
 - 系统托盘常驻：右键右下角托盘图标可以打开设置、显示/隐藏桌面图标、退出软件。
 - 设置页面：支持调整桌面图标大小、切换图标风格、切换桌面/摆件屏幕模式、配置开机自启动。
 - 实时缩放：图标大小范围为 `15%` 到 `300%`，拖动滑杆时会实时预览。
+- 全屏自动隐藏：进入游戏、全屏视频或演示时自动隐藏桌宠，退出全屏后自动恢复。
 - 默认状态源：默认监听本机 `~/.codex/sessions` 下最新 Codex 会话日志，不再使用循环演示模式。
 - 审批提醒：检测到 Codex 需要权限审批时会进入 `approval` 状态，显示更醒目的审批图标，并弹出系统通知。
 - 摆件屏幕同步：切换到摆件屏幕模式后，会把状态通过 HTTP JSON 推送给 ESP32、圆屏、点阵屏或三色灯固件。
@@ -18,7 +19,7 @@
 
 ## 快速使用
 
-1. 下载并运行安装包：[`Codex Pixel Pet Setup 0.1.0.exe`](release/electron-installer-v16/Codex%20Pixel%20Pet%20Setup%200.1.0.exe)
+1. 下载并运行安装包：[`Codex Pixel Pet Setup 0.1.1.exe`](release/electron-installer-v21/Codex%20Pixel%20Pet%20Setup%200.1.1.exe)
 2. 启动后看右下角系统托盘图标。
 3. 右键托盘图标，选择 `打开设置`。
 4. 在设置里调整图标大小、开机自启动、状态来源和摆件屏幕地址。
@@ -30,7 +31,7 @@
 - `acting`：正在调用工具、执行命令、读取工具输出或修改文件。
 - `waiting`：等待用户继续输入。
 - `approval`：等待权限审批，属于最高优先级提醒状态。
-- `done`：Codex 已生成回复或正在汇报结果。
+- `done`：Codex 已确认整轮任务完成，或最终回复进入安静期后完成。
 - `error`：日志中出现错误、失败或桥接异常。
 - `offline`：状态源不可用或屏幕同步离线。
 
@@ -42,7 +43,8 @@
 
 - 自动查找 `~/.codex/sessions` 下最近修改的 `.jsonl` 会话日志。
 - 每 `900ms` 轮询新增内容。
-- 根据 `user_message`、`reasoning`、`function_call`、`function_call_output`、`agent_message` 等记录映射桌宠状态。
+- 根据 `task_started`、`reasoning`、`function_call`、`custom_tool_call`、`function_call_output`、`patch_apply_end`、`final_answer`、`task_complete` 等记录映射桌宠状态。
+- 中间进展消息 `phase: commentary` 只显示为 `acting/CHAT`，不会触发 `done`，避免一个任务中途反复跳到完成。
 - 检测到 `approval`、`permission`、`authorize` 或 `sandbox_permissions: require_escalated` 等关键词时进入审批提醒。
 - 如果一段时间没有新事件，会自动回到 `idle`。
 
@@ -95,7 +97,7 @@ npm run dev
 npm run build
 ```
 
-安装包输出到 `release/`。当前上传到 GitHub 的可下载版本位于 `release/electron-installer-v16/`，未上传 `win-unpacked`，因为其中包含超过 GitHub 普通仓库限制的大文件。
+安装包输出到 `release/`。当前上传到 GitHub 的可下载版本位于 `release/electron-installer-v17/`，未上传 `win-unpacked`，因为其中包含超过 GitHub 普通仓库限制的大文件。
 
 ---
 
@@ -252,7 +254,7 @@ node ./scripts/write-status.mjs thinking "正在思考" "分析状态桥接方�
 - `thinking`：分析任务、整理计划
 - `acting`：运行命令、调用工具、改代码、搜索资料
 - `waiting`：等待你确认或授权
-- `done`：本轮完成
+- `done`：收到 `task_complete` 或最终回复稳定后完成
 - `error`：执行异常或桥接失败
 
 ## 动态桌宠

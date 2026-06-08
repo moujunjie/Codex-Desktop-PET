@@ -16,7 +16,8 @@
     "alwaysOnTop": true
   },
   "display": {
-    "mode": "desktop"
+    "mode": "desktop",
+    "autoHideOnFullscreen": true
   },
   "startup": {
     "openAtLogin": false
@@ -42,6 +43,7 @@
     "mode": "codex-exec",
     "mockCycleSeconds": 6,
     "codexLogIdleAfterMs": 180000,
+    "codexLogDoneAfterMs": 30000,
     "codexExec": {
       "autoStart": false,
       "command": "codex",

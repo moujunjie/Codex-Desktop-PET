@@ -12,6 +12,7 @@ contextBridge.exposeInMainWorld("petAPI", {
   setAppearanceMode: (mode) => ipcRenderer.invoke("pet:set-appearance-mode", mode),
   setIconScale: (scale) => ipcRenderer.invoke("pet:set-icon-scale", scale),
   setDisplayMode: (mode) => ipcRenderer.invoke("pet:set-display-mode", mode),
+  setAutoHideFullscreen: (enabled) => ipcRenderer.invoke("pet:set-auto-hide-fullscreen", enabled),
   setDeviceEndpoint: (endpoint) => ipcRenderer.invoke("pet:set-device-endpoint", endpoint),
   setStartup: (enabled) => ipcRenderer.invoke("pet:set-startup", enabled),
   minimize: () => ipcRenderer.invoke("pet:minimize"),

@@ -1,6 +1,6 @@
 {
   "name": "codex-pixel-pet",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "description": "Codex 工作状态桌面悬浮宠物",
   "main": "electron/main.js",

@@ -3,6 +3,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 
 const { DeviceBridge } = require("./device-bridge");
+const { FullscreenWatcher } = require("./fullscreen-watcher");
 const { SettingsStore, mergeDeep } = require("./settings-store");
 const { StatusBridge } = require("./status-bridge");
 
@@ -24,11 +25,15 @@ let mainWindow = null;
 let settingsWindow = null;
 let statusBridge = null;
 let deviceBridge = null;
+let fullscreenWatcher = null;
 let settingsStore = null;
 let lastDeviceState = null;
 let lastStatus = null;
+let lastFullscreenState = { fullscreen: false, processId: 0 };
 let tray = null;
 let isQuitting = false;
+let desktopWindowManuallyHidden = false;
+let autoHiddenForFullscreen = false;
 let latestScalePreviewSequence = 0;
 let activeScalePreviewSession = null;
 let dragSession = null;
@@ -176,7 +181,15 @@ function createWindow() {
   }
 
   mainWindow.once("ready-to-show", () => {
-    mainWindow?.showInactive();
+    if (shouldKeepHiddenForFullscreen()) {
+      autoHiddenForFullscreen = true;
+      rebuildTrayMenu();
+      return;
+    }
+
+    if (!desktopWindowManuallyHidden) {
+      mainWindow?.showInactive();
+    }
   });
   mainWindow.loadFile(path.join(rootDir, "src", "desktop.html"));
   mainWindow.on("closed", () => {
@@ -282,6 +295,76 @@ function restartDeviceBridge() {
   }
 }
 
+function restartFullscreenWatcher() {
+  if (fullscreenWatcher) {
+    fullscreenWatcher.stop();
+    fullscreenWatcher = null;
+  }
+
+  if (!isAutoHideOnFullscreenEnabled()) {
+    restoreMainWindowAfterFullscreen();
+    return;
+  }
+
+  fullscreenWatcher = new FullscreenWatcher({
+    onChange: handleFullscreenState
+  });
+  fullscreenWatcher.start();
+}
+
+function isAutoHideOnFullscreenEnabled() {
+  return config.display?.autoHideOnFullscreen !== false;
+}
+
+function handleFullscreenState(state) {
+  lastFullscreenState = {
+    fullscreen: Boolean(state?.fullscreen),
+    processId: Number(state?.processId || 0),
+    title: state?.title || "",
+    className: state?.className || ""
+  };
+
+  if (!isAutoHideOnFullscreenEnabled() || lastFullscreenState.processId === process.pid) {
+    restoreMainWindowAfterFullscreen();
+    return;
+  }
+
+  if (lastFullscreenState.fullscreen) {
+    hideMainWindowForFullscreen();
+    return;
+  }
+
+  restoreMainWindowAfterFullscreen();
+}
+
+function hideMainWindowForFullscreen() {
+  if (!mainWindow || mainWindow.isDestroyed()) {
+    return;
+  }
+
+  if (mainWindow.isVisible()) {
+    autoHiddenForFullscreen = true;
+    mainWindow.hide();
+    rebuildTrayMenu();
+  }
+}
+
+function restoreMainWindowAfterFullscreen() {
+  if (!autoHiddenForFullscreen) {
+    return;
+  }
+
+  autoHiddenForFullscreen = false;
+  if (!desktopWindowManuallyHidden && mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.showInactive();
+  }
+  rebuildTrayMenu();
+}
+
+function shouldKeepHiddenForFullscreen() {
+  return isAutoHideOnFullscreenEnabled() && lastFullscreenState.fullscreen && lastFullscreenState.processId !== process.pid;
+}
+
 function isDeviceDisplayMode() {
   return config.display?.mode === "device";
 }
@@ -371,9 +454,14 @@ function rebuildTrayMenu() {
 
   const desktopVisible = Boolean(mainWindow && !mainWindow.isDestroyed() && mainWindow.isVisible());
   const statusLabel = lastStatus?.title || "待命中";
+  const fullscreenLabel = autoHiddenForFullscreen ? "全屏应用中：桌宠已自动隐藏" : `全屏自动隐藏：${isAutoHideOnFullscreenEnabled() ? "开启" : "关闭"}`;
   const menu = Menu.buildFromTemplate([
     {
       label: `当前状态：${statusLabel}`,
+      enabled: false
+    },
+    {
+      label: fullscreenLabel,
       enabled: false
     },
     { type: "separator" },
@@ -405,9 +493,17 @@ function toggleDesktopWindow() {
   }
 
   if (mainWindow.isVisible()) {
+    desktopWindowManuallyHidden = true;
+    autoHiddenForFullscreen = false;
     mainWindow.hide();
   } else {
-    mainWindow.showInactive();
+    desktopWindowManuallyHidden = false;
+    if (shouldKeepHiddenForFullscreen()) {
+      autoHiddenForFullscreen = true;
+    } else {
+      autoHiddenForFullscreen = false;
+      mainWindow.showInactive();
+    }
   }
 
   rebuildTrayMenu();
@@ -545,6 +641,15 @@ ipcMain.handle("pet:set-display-mode", async (_event, mode) => {
   restartDeviceBridge();
   return config.display.mode;
 });
+ipcMain.handle("pet:set-auto-hide-fullscreen", async (_event, enabled) => {
+  updateConfig({
+    display: {
+      autoHideOnFullscreen: Boolean(enabled)
+    }
+  });
+  restartFullscreenWatcher();
+  return config.display.autoHideOnFullscreen;
+});
 ipcMain.handle("pet:set-device-endpoint", async (_event, endpoint) => {
   updateConfig({
     device: {
@@ -633,10 +738,15 @@ app.whenReady().then(() => {
   createTray();
   restartBridge();
   restartDeviceBridge();
+  restartFullscreenWatcher();
 });
 
 app.on("window-all-closed", () => {
   if (isQuitting || !tray) {
     app.quit();
   }
+});
+
+app.on("before-quit", () => {
+  fullscreenWatcher?.stop();
 });

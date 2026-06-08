@@ -26,6 +26,8 @@ class StatusBridge {
     this.codexLogFilePath = null;
     this.codexLogOffset = 0;
     this.lastCodexLogEventAt = 0;
+    this.pendingDoneTimer = null;
+    this.pendingDoneState = null;
     this.stdoutBuffer = "";
     this.stderrTail = "";
   }
@@ -70,17 +72,62 @@ class StatusBridge {
       this.codexLogTimer = null;
     }
 
+    this.clearPendingDone();
     this.codexLogFilePath = null;
     this.codexLogOffset = 0;
   }
 
   emitState(partialState) {
+    if (partialState?.status && (partialState.status !== "done" || this.pendingDoneState)) {
+      this.clearPendingDone();
+    }
+
     this.currentState = {
       ...this.currentState,
       ...partialState,
       updatedAt: Date.now()
     };
     this.onState(this.currentState);
+  }
+
+  handleMappedState(mappedState) {
+    if (!mappedState) {
+      return;
+    }
+
+    if (mappedState.deferUntilQuiet) {
+      this.deferDoneUntilQuiet(mappedState);
+      return;
+    }
+
+    this.emitState(mappedState);
+  }
+
+  deferDoneUntilQuiet(mappedState) {
+    const { deferUntilQuiet, intermediateState, quietMs, ...doneState } = mappedState;
+    if (intermediateState) {
+      this.emitState(intermediateState);
+    }
+
+    this.clearPendingDone();
+    this.pendingDoneState = doneState;
+    const delay = Number(quietMs || this.getConfig()?.source?.codexLogDoneAfterMs || 30000);
+    this.pendingDoneTimer = setTimeout(() => {
+      const pendingState = this.pendingDoneState;
+      this.pendingDoneTimer = null;
+      this.pendingDoneState = null;
+      if (pendingState) {
+        this.emitState(pendingState);
+      }
+    }, Math.max(1200, delay));
+  }
+
+  clearPendingDone() {
+    if (this.pendingDoneTimer) {
+      clearTimeout(this.pendingDoneTimer);
+      this.pendingDoneTimer = null;
+    }
+    this.pendingDoneState = null;
   }
 
   startMockMode() {
@@ -332,7 +379,7 @@ class StatusBridge {
         const mapped = mapCodexLogRecordToState(record, this.currentState);
         if (mapped) {
           this.lastCodexLogEventAt = Date.now();
-          this.emitState(mapped);
+          this.handleMappedState(mapped);
         }
       } catch (_error) {
         // 会话日志可能刚写到半行，下一次轮询会读到完整内容。
@@ -374,7 +421,7 @@ class StatusBridge {
         const event = JSON.parse(trimmed);
         const mappedState = mapCodexEventToState(event, this.currentState);
         if (mappedState) {
-          this.emitState(mappedState);
+          this.handleMappedState(mappedState);
         }
       } catch (error) {
         this.emitState({
@@ -522,6 +569,28 @@ function mapCodexLogRecordToState(record, previousState) {
     };
   }
 
+  if (record?.type === "event_msg" && payloadType === "task_started") {
+    return {
+      status: "thinking",
+      title: "新任务已开始",
+      detail: "Codex 正在读取任务上下文。",
+      badge: "TURN",
+      sourceLabel: "Codex 会话日志",
+      turnStartedAt: Date.now()
+    };
+  }
+
+  if (record?.type === "event_msg" && payloadType === "task_complete") {
+    return {
+      status: "done",
+      title: "任务完成",
+      detail: "Codex 已确认本轮任务全部结束。",
+      badge: "DONE",
+      sourceLabel: "Codex 会话日志",
+      turnStartedAt: null
+    };
+  }
+
   if (record?.type === "response_item" && payloadType === "reasoning") {
     return {
       status: "thinking",
@@ -533,7 +602,7 @@ function mapCodexLogRecordToState(record, previousState) {
     };
   }
 
-  if (record?.type === "response_item" && payloadType === "function_call") {
+  if (record?.type === "response_item" && isToolCallPayload(payloadType)) {
     return {
       status: "acting",
       title: "正在调用工具",
@@ -544,7 +613,7 @@ function mapCodexLogRecordToState(record, previousState) {
     };
   }
 
-  if (record?.type === "response_item" && payloadType === "function_call_output") {
+  if (record?.type === "response_item" && isToolOutputPayload(payloadType)) {
     return {
       status: "acting",
       title: "工具返回结果",
@@ -555,26 +624,89 @@ function mapCodexLogRecordToState(record, previousState) {
     };
   }
 
-  if (record?.type === "event_msg" && payloadType === "agent_message") {
+  if (record?.type === "event_msg" && payloadType === "patch_apply_begin") {
     return {
-      status: "done",
-      title: "正在汇报结果",
-      detail: shorten(payload.message || "Codex 正在回复你。"),
-      badge: "DONE",
+      status: "acting",
+      title: "正在应用补丁",
+      detail: "Codex 正在把代码改动写入工程。",
+      badge: "EDIT",
       sourceLabel: "Codex 会话日志",
-      turnStartedAt: null
+      turnStartedAt: previousState.turnStartedAt || Date.now()
     };
   }
 
-  if (record?.type === "response_item" && payloadType === "message") {
+  if (record?.type === "event_msg" && payloadType === "patch_apply_end") {
     return {
-      status: "done",
-      title: "已生成回复",
-      detail: "Codex 已输出一段回复。",
-      badge: "DONE",
+      status: "acting",
+      title: "补丁已应用",
+      detail: "代码改动已写入，Codex 正在继续检查后续步骤。",
+      badge: "EDIT",
       sourceLabel: "Codex 会话日志",
-      turnStartedAt: null
+      turnStartedAt: previousState.turnStartedAt || Date.now()
     };
+  }
+
+  if (record?.type === "event_msg" && payloadType === "agent_message") {
+    const detail = shorten(payload.message || "Codex 正在回复你。");
+    if (!isFinalAnswerPhase(payload.phase)) {
+      return {
+        status: "acting",
+        title: "正在同步进展",
+        detail,
+        badge: "CHAT",
+        sourceLabel: "Codex 会话日志",
+        turnStartedAt: previousState.turnStartedAt || Date.now()
+      };
+    }
+
+    return deferDoneState(
+      {
+        title: "任务完成",
+        detail: "这一轮没有新的工具动作，结果已经整理好。",
+        sourceLabel: "Codex 会话日志"
+      },
+      {
+        status: "acting",
+        title: "正在整理回复",
+        detail,
+        badge: "CHAT",
+        sourceLabel: "Codex 会话日志",
+        turnStartedAt: previousState.turnStartedAt || Date.now()
+      }
+    );
+  }
+
+  if (record?.type === "response_item" && payloadType === "message") {
+    if (payload.role !== "assistant") {
+      return null;
+    }
+
+    if (!isFinalAnswerPhase(payload.phase)) {
+      return {
+        status: "acting",
+        title: "正在整理回复",
+        detail: "Codex 正在同步中间进展，还没有确认整轮任务结束。",
+        badge: "CHAT",
+        sourceLabel: "Codex 会话日志",
+        turnStartedAt: previousState.turnStartedAt || Date.now()
+      };
+    }
+
+    return deferDoneState(
+      {
+        title: "任务完成",
+        detail: "这一轮没有新的工具动作，结果已经整理好。",
+        sourceLabel: "Codex 会话日志"
+      },
+      {
+        status: "acting",
+        title: "正在整理回复",
+        detail: "Codex 已输出一段回复，正在确认没有后续动作。",
+        badge: "CHAT",
+        sourceLabel: "Codex 会话日志",
+        turnStartedAt: previousState.turnStartedAt || Date.now()
+      }
+    );
   }
 
   if (/error|failed|execution error/i.test(recordText)) {
@@ -674,6 +806,28 @@ function mapItemState(item, previousState) {
     };
   }
 
+  if (isToolCallPayload(itemType)) {
+    return {
+      status: "acting",
+      title: "正在调用工具",
+      detail: shorten(item?.name || item?.tool_name || "工具调用中。"),
+      badge: "TOOL",
+      sourceLabel: "codex exec --json",
+      turnStartedAt: previousState.turnStartedAt || Date.now()
+    };
+  }
+
+  if (isToolOutputPayload(itemType)) {
+    return {
+      status: "acting",
+      title: "工具返回结果",
+      detail: "Codex 正在读取工具输出。",
+      badge: "WORK",
+      sourceLabel: "codex exec --json",
+      turnStartedAt: previousState.turnStartedAt || Date.now()
+    };
+  }
+
   if (itemType === "mcp_tool_call") {
     return {
       status: "acting",
@@ -745,6 +899,34 @@ function shorten(text) {
   }
 
   return String(text).replace(/\s+/g, " ").slice(0, 100);
+}
+
+function deferDoneState(doneState, intermediateState) {
+  return {
+    status: "done",
+    title: doneState.title || "任务完成",
+    detail: doneState.detail || "这一轮已经收尾，等待下一步。",
+    badge: doneState.badge || "DONE",
+    sourceLabel: doneState.sourceLabel || "Codex 会话日志",
+    turnStartedAt: null,
+    deferUntilQuiet: true,
+    intermediateState
+  };
+}
+
+function isToolCallPayload(payloadType) {
+  const type = String(payloadType || "").toLowerCase();
+  return type === "function_call" || type === "custom_tool_call" || type === "tool_call";
+}
+
+function isToolOutputPayload(payloadType) {
+  const type = String(payloadType || "").toLowerCase();
+  return type === "function_call_output" || type === "custom_tool_call_output" || type === "tool_call_output";
+}
+
+function isFinalAnswerPhase(phase) {
+  const value = String(phase || "").toLowerCase();
+  return value === "final" || value === "final_answer" || value === "final-answer";
 }
 
 function isApprovalRequestEvent(event) {

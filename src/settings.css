@@ -248,6 +248,10 @@ body {
   justify-content: space-between;
 }
 
+.switch-row-inline {
+  margin-top: 12px;
+}
+
 .switch-row input {
   width: 42px;
   height: 24px;
