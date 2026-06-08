@@ -1,4 +1,5 @@
 const fs = require("node:fs");
+const os = require("node:os");
 const path = require("node:path");
 const { spawn } = require("node:child_process");
 
@@ -21,6 +22,10 @@ class StatusBridge {
     this.mockTimer = null;
     this.fileWatcher = null;
     this.codexProcess = null;
+    this.codexLogTimer = null;
+    this.codexLogFilePath = null;
+    this.codexLogOffset = 0;
+    this.lastCodexLogEventAt = 0;
     this.stdoutBuffer = "";
     this.stderrTail = "";
   }
@@ -59,6 +64,14 @@ class StatusBridge {
       this.codexProcess.kill();
       this.codexProcess = null;
     }
+
+    if (this.codexLogTimer) {
+      clearInterval(this.codexLogTimer);
+      this.codexLogTimer = null;
+    }
+
+    this.codexLogFilePath = null;
+    this.codexLogOffset = 0;
   }
 
   emitState(partialState) {
@@ -185,14 +198,7 @@ class StatusBridge {
     const config = this.getConfig();
     const sourceConfig = config?.source?.codexExec || {};
     if (sourceConfig.autoStart === false) {
-      this.emitState({
-        status: "idle",
-        title: "已接入 Codex",
-        detail: "默认使用 codex-exec 状态源，未启用演示循环。",
-        badge: "IDLE",
-        sourceLabel: "codex exec --json",
-        turnStartedAt: null
-      });
+      this.startCodexLogMode();
       return;
     }
 
@@ -255,6 +261,102 @@ class StatusBridge {
         turnStartedAt: null
       });
     });
+  }
+
+  startCodexLogMode() {
+    const poll = () => {
+      const latestLog = findLatestCodexSessionLog();
+      if (!latestLog) {
+        this.emitState({
+          status: "idle",
+          title: "等待 Codex 日志",
+          detail: "还没找到 .codex/sessions 会话日志。",
+          badge: "IDLE",
+          sourceLabel: "Codex 会话日志",
+          turnStartedAt: null
+        });
+        return;
+      }
+
+      if (latestLog !== this.codexLogFilePath) {
+        this.codexLogFilePath = latestLog;
+        this.codexLogOffset = Math.max(0, fs.statSync(latestLog).size - 96 * 1024);
+        this.emitState({
+          status: "idle",
+          title: "已监听 Codex",
+          detail: `正在监听 ${path.basename(latestLog)}`,
+          badge: "LOG",
+          sourceLabel: "Codex 会话日志",
+          turnStartedAt: null
+        });
+      }
+
+      this.consumeCodexLog(latestLog);
+      this.maybeMarkCodexLogIdle();
+    };
+
+    poll();
+    this.codexLogTimer = setInterval(poll, 900);
+  }
+
+  consumeCodexLog(filePath) {
+    let stat;
+    try {
+      stat = fs.statSync(filePath);
+    } catch (error) {
+      return;
+    }
+
+    if (stat.size < this.codexLogOffset) {
+      this.codexLogOffset = 0;
+    }
+
+    if (stat.size === this.codexLogOffset) {
+      return;
+    }
+
+    const length = stat.size - this.codexLogOffset;
+    const buffer = Buffer.alloc(length);
+    const fd = fs.openSync(filePath, "r");
+    try {
+      fs.readSync(fd, buffer, 0, length, this.codexLogOffset);
+    } finally {
+      fs.closeSync(fd);
+    }
+    this.codexLogOffset = stat.size;
+
+    const lines = buffer.toString("utf8").split(/\r?\n/).filter(Boolean);
+    for (const line of lines) {
+      try {
+        const record = JSON.parse(line);
+        const mapped = mapCodexLogRecordToState(record, this.currentState);
+        if (mapped) {
+          this.lastCodexLogEventAt = Date.now();
+          this.emitState(mapped);
+        }
+      } catch (_error) {
+        // 会话日志可能刚写到半行，下一次轮询会读到完整内容。
+      }
+    }
+  }
+
+  maybeMarkCodexLogIdle() {
+    const status = this.currentState?.status;
+    if (!this.lastCodexLogEventAt || status === "idle" || status === "approval" || status === "waiting") {
+      return;
+    }
+
+    const idleAfterMs = Number(this.getConfig()?.source?.codexLogIdleAfterMs || 180000);
+    if (Date.now() - this.lastCodexLogEventAt > idleAfterMs) {
+      this.emitState({
+        status: "idle",
+        title: "待命中",
+        detail: "最近没有新的 Codex 会话事件。",
+        badge: "IDLE",
+        sourceLabel: "Codex 会话日志",
+        turnStartedAt: null
+      });
+    }
   }
 
   consumeStdout(text) {
@@ -391,6 +493,149 @@ function mapCodexEventToState(event, previousState) {
   }
 
   return null;
+}
+
+function mapCodexLogRecordToState(record, previousState) {
+  const payload = record?.payload || {};
+  const payloadType = payload?.type;
+  const recordText = JSON.stringify(record || {});
+
+  if (/sandbox_permissions\\"?:\\"require_escalated|approval|authorize|permission/i.test(recordText)) {
+    return {
+      status: "approval",
+      title: "等待权限审批",
+      detail: "Codex 请求权限或审批，需要你确认。",
+      badge: "ALLOW",
+      sourceLabel: "Codex 会话日志",
+      turnStartedAt: previousState.turnStartedAt || Date.now()
+    };
+  }
+
+  if (record?.type === "event_msg" && payloadType === "user_message") {
+    return {
+      status: "thinking",
+      title: "收到新任务",
+      detail: "Codex 正在读取你的新请求。",
+      badge: "THINK",
+      sourceLabel: "Codex 会话日志",
+      turnStartedAt: Date.now()
+    };
+  }
+
+  if (record?.type === "response_item" && payloadType === "reasoning") {
+    return {
+      status: "thinking",
+      title: "正在思考",
+      detail: "Codex 正在分析上下文和组织步骤。",
+      badge: "THINK",
+      sourceLabel: "Codex 会话日志",
+      turnStartedAt: previousState.turnStartedAt || Date.now()
+    };
+  }
+
+  if (record?.type === "response_item" && payloadType === "function_call") {
+    return {
+      status: "acting",
+      title: "正在调用工具",
+      detail: shorten(payload.name || "工具调用中。"),
+      badge: "TOOL",
+      sourceLabel: "Codex 会话日志",
+      turnStartedAt: previousState.turnStartedAt || Date.now()
+    };
+  }
+
+  if (record?.type === "response_item" && payloadType === "function_call_output") {
+    return {
+      status: "acting",
+      title: "工具返回结果",
+      detail: "Codex 正在读取工具输出。",
+      badge: "WORK",
+      sourceLabel: "Codex 会话日志",
+      turnStartedAt: previousState.turnStartedAt || Date.now()
+    };
+  }
+
+  if (record?.type === "event_msg" && payloadType === "agent_message") {
+    return {
+      status: "done",
+      title: "正在汇报结果",
+      detail: shorten(payload.message || "Codex 正在回复你。"),
+      badge: "DONE",
+      sourceLabel: "Codex 会话日志",
+      turnStartedAt: null
+    };
+  }
+
+  if (record?.type === "response_item" && payloadType === "message") {
+    return {
+      status: "done",
+      title: "已生成回复",
+      detail: "Codex 已输出一段回复。",
+      badge: "DONE",
+      sourceLabel: "Codex 会话日志",
+      turnStartedAt: null
+    };
+  }
+
+  if (/error|failed|execution error/i.test(recordText)) {
+    return {
+      status: "error",
+      title: "执行异常",
+      detail: "Codex 日志中出现错误事件。",
+      badge: "ERR",
+      sourceLabel: "Codex 会话日志",
+      turnStartedAt: null
+    };
+  }
+
+  return null;
+}
+
+function findLatestCodexSessionLog() {
+  const sessionsDir = path.join(os.homedir(), ".codex", "sessions");
+  if (!fs.existsSync(sessionsDir)) {
+    return null;
+  }
+
+  let latest = null;
+  const stack = [sessionsDir];
+  while (stack.length) {
+    const currentDir = stack.pop();
+    let entries = [];
+    try {
+      entries = fs.readdirSync(currentDir, { withFileTypes: true });
+    } catch (_error) {
+      continue;
+    }
+
+    for (const entry of entries) {
+      const fullPath = path.join(currentDir, entry.name);
+      if (entry.isDirectory()) {
+        stack.push(fullPath);
+        continue;
+      }
+
+      if (!entry.isFile() || !entry.name.endsWith(".jsonl")) {
+        continue;
+      }
+
+      let stat;
+      try {
+        stat = fs.statSync(fullPath);
+      } catch (_error) {
+        continue;
+      }
+
+      if (!latest || stat.mtimeMs > latest.mtimeMs) {
+        latest = {
+          filePath: fullPath,
+          mtimeMs: stat.mtimeMs
+        };
+      }
+    }
+  }
+
+  return latest?.filePath || null;
 }
 
 function mapItemState(item, previousState) {

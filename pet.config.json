@@ -41,6 +41,7 @@
   "source": {
     "mode": "codex-exec",
     "mockCycleSeconds": 6,
+    "codexLogIdleAfterMs": 180000,
     "codexExec": {
       "autoStart": false,
       "command": "codex",
@@ -52,7 +53,7 @@
       "cwd": "E:/codex_project/AI红绿灯"
     },
     "file": {
-      "path": "./runtime/status.json"
+      "path": "E:/codex_project/AI红绿灯/runtime/status.json"
     }
   }
 }

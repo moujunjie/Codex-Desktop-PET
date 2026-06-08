@@ -97,8 +97,7 @@ function renderStatus(nextStatus) {
   const normalized = normalizeStatus(nextStatus);
   state.currentStatus = normalized;
   pet.className = `pet ${STATUS_CLASS_PREFIX}${normalized.status}`;
-  petImage.src = resolveAsset(normalized.status);
-  petImage.alt = "";
+  petImage.style.backgroundImage = `url("${resolveAsset(normalized.status)}")`;
   pet.removeAttribute("title");
   document.title = "";
 }

@@ -34,7 +34,9 @@ body {
   width: 100%;
   height: 100%;
   display: block;
-  object-fit: contain;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: contain;
   image-rendering: pixelated;
   pointer-events: auto;
   transform-origin: 50% 82%;

@@ -6,6 +6,12 @@ const { DeviceBridge } = require("./device-bridge");
 const { SettingsStore, mergeDeep } = require("./settings-store");
 const { StatusBridge } = require("./status-bridge");
 
+// 透明无边框窗口在部分 Windows + GPU 组合上会出现淡蓝色合成条纹。
+// 禁用 GPU 让桌面宠物使用软件合成，优先保证视觉干净和资源稳定。
+app.disableHardwareAcceleration();
+app.commandLine.appendSwitch("disable-gpu");
+app.commandLine.appendSwitch("disable-gpu-compositing");
+
 const rootDir = path.resolve(__dirname, "..");
 const configPath = path.join(rootDir, "pet.config.json");
 
