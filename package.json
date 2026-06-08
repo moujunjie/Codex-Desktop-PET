@@ -14,6 +14,7 @@
   "build": {
     "appId": "local.codex.pixelpet",
     "productName": "Codex Pixel Pet",
+    "icon": "assets/app-icon-idle-v2.ico",
     "directories": {
       "output": "release"
     },
@@ -36,7 +37,12 @@
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": "Codex Pixel Pet"
+      "shortcutName": "Codex Pixel Pet",
+      "installerIcon": "assets/app-icon-idle-v2.ico",
+      "uninstallerIcon": "assets/app-icon-idle-v2.ico"
+    },
+    "win": {
+      "icon": "assets/app-icon-idle-v2.ico"
     }
   },
   "devDependencies": {

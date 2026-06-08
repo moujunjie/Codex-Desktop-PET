@@ -1,7 +1,7 @@
 # Codex Pixel Pet 最新版说明
 
 > 更新时间：2026-06-08  
-> 当前可下载安装包：[release/electron-installer-v11/Codex Pixel Pet Setup 0.1.0.exe](release/electron-installer-v11/Codex%20Pixel%20Pet%20Setup%200.1.0.exe)
+> 当前可下载安装包：[release/electron-installer-v16/Codex Pixel Pet Setup 0.1.0.exe](release/electron-installer-v16/Codex%20Pixel%20Pet%20Setup%200.1.0.exe)
 
 这是一个轻量化的 Codex 工作状态桌面宠物。最新版已经改成“右下角系统托盘常驻 + 透明桌面状态牌 + 可选摆件屏幕同步”的形态，桌面上只显示像素风状态图标，不再显示额外窗口标题或控制按钮。
 
@@ -18,7 +18,7 @@
 
 ## 快速使用
 
-1. 下载并运行安装包：[`Codex Pixel Pet Setup 0.1.0.exe`](release/electron-installer-v11/Codex%20Pixel%20Pet%20Setup%200.1.0.exe)
+1. 下载并运行安装包：[`Codex Pixel Pet Setup 0.1.0.exe`](release/electron-installer-v16/Codex%20Pixel%20Pet%20Setup%200.1.0.exe)
 2. 启动后看右下角系统托盘图标。
 3. 右键托盘图标，选择 `打开设置`。
 4. 在设置里调整图标大小、开机自启动、状态来源和摆件屏幕地址。
@@ -95,7 +95,7 @@ npm run dev
 npm run build
 ```
 
-安装包输出到 `release/`。当前上传到 GitHub 的可下载版本位于 `release/electron-installer-v11/`，未上传 `win-unpacked`，因为其中包含超过 GitHub 普通仓库限制的大文件。
+安装包输出到 `release/`。当前上传到 GitHub 的可下载版本位于 `release/electron-installer-v16/`，未上传 `win-unpacked`，因为其中包含超过 GitHub 普通仓库限制的大文件。
 
 ---
 

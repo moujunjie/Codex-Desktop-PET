@@ -108,6 +108,10 @@ function assetRoot() {
   return app.isPackaged ? path.join(process.resourcesPath, "assets") : path.join(rootDir, "assets");
 }
 
+function resolveAppIconPath() {
+  return path.join(assetRoot(), "app-icon-idle-v2.ico");
+}
+
 function resolveStateAssetDataUrls(appearanceMode) {
   const folders = appearanceMode === "character" ? ["pet-states-clean", "pet-states"] : ["pet-cards-cutout-v2", "pet-cards"];
   const states = ["idle", "thinking", "acting", "waiting", "approval", "done", "error", "offline"];
@@ -151,6 +155,7 @@ function createWindow() {
     alwaysOnTop: windowConfig.alwaysOnTop !== false,
     skipTaskbar: true,
     title: "",
+    icon: resolveAppIconPath(),
     webPreferences: {
       preload: path.join(__dirname, "preload.js"),
       backgroundThrottling: true,
@@ -195,6 +200,7 @@ function createSettingsWindow() {
     title: "Codex Pixel Pet 设置",
     resizable: true,
     alwaysOnTop: false,
+    icon: resolveAppIconPath(),
     webPreferences: {
       preload: path.join(__dirname, "preload.js"),
       backgroundThrottling: true,
